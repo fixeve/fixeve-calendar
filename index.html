@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>シンプルカレンダー</title>
+  <style>
+    table { border-collapse: collapse; width: 100%; }
+    th, td { border: 1px solid #000; padding: 10px; text-align: center; }
+    th { background-color: #f0f0f0; }
+    td { height: 50px; }
+  </style>
+</head>
+<body>
+  <h1 id="monthYear"></h1>
+  <table id="calendar">
+    <thead>
+      <tr>
+        <th>日</th><th>月</th><th>火</th><th>水</th><th>木</th><th>金</th><th>土</th>
+      </tr>
+    </thead>
+    <tbody id="calendarBody">
+      <!-- 日付はここに追加 -->
+    </tbody>
+  </table>
+
+  <script>
+    function createCalendar(year, month) {
+      const calendarBody = document.getElementById("calendarBody");
+      calendarBody.innerHTML = ""; // 既存をクリア
+
+      document.getElementById("monthYear").textContent = `${year}年 ${month+1}月`;
+
+      const firstDay = new Date(year, month, 1).getDay(); // 1日の曜日
+      const lastDate = new Date(year, month + 1, 0).getDate(); // 月末日
+
+      let date = 1;
+      for (let i = 0; i < 6; i++) { // 最大6行
+        const row = document.createElement("tr");
+        for (let j = 0; j < 7; j++) {
+          const cell = document.createElement("td");
+          if (i === 0 && j < firstDay) {
+            cell.textContent = "";
+          } else if (date > lastDate) {
+            cell.textContent = "";
+          } else {
+            cell.textContent = date;
+            date++;
+          }
+          row.appendChild(cell);
+        }
+        calendarBody.appendChild(row);
+      }
+    }
+
+    const today = new Date();
+    createCalendar(today.getFullYear(), today.getMonth());
+  </script>
+</body>
+</html>
