@@ -3,30 +3,36 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Googleカレンダー風</title>
+  <title>Googleカレンダー風 拡張版</title>
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
   <header class="calendar-header">
     <h1 id="month-year"></h1>
     <div class="controls">
-      <button id="prev-month">◀</button>
+      <button id="prev">◀</button>
       <button id="today-btn">今日</button>
-      <button id="next-month">▶</button>
+      <button id="next">▶</button>
+      <select id="view-select">
+        <option value="month">月</option>
+        <option value="week">週</option>
+        <option value="day">日</option>
+      </select>
     </div>
   </header>
 
   <main class="calendar">
     <div class="calendar-days"></div>
+
     <div id="event-modal" class="modal">
       <div class="modal-content">
         <h2 id="modal-date"></h2>
         <textarea id="event-text" placeholder="予定を入力..."></textarea>
         <div class="modal-buttons">
-          <button id="save-event">保存</button>
-          <button id="delete-event">削除</button>
+          <button id="save-event">追加</button>
           <button id="close-modal">閉じる</button>
         </div>
+        <div id="event-list"></div>
       </div>
     </div>
   </main>
