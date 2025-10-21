@@ -1,116 +1,160 @@
-const daysContainer = document.querySelector(".calendar-days");
-const monthYear = document.getElementById("month-year");
-const modal = document.getElementById("event-modal");
-const modalDate = document.getElementById("modal-date");
-const eventText = document.getElementById("event-text");
-const saveEventBtn = document.getElementById("save-event");
-const deleteEventBtn = document.getElementById("delete-event");
-const closeModalBtn = document.getElementById("close-modal");
+body {
+  font-family: "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  background: #f4f5f7;
+  margin: 0;
+  padding: 0;
+}
 
-let currentDate = new Date();
-let events = JSON.parse(localStorage.getItem("calendarEvents")) || {};
+.calendar-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: white;
+  padding: 1em;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+  position: sticky;
+  top: 0;
+}
 
-function renderCalendar() {
-  const year = currentDate.getFullYear();
-  const month = currentDate.getMonth();
-  const firstDay = new Date(year, month, 1);
-  const lastDay = new Date(year, month + 1, 0);
+#month-year {
+  font-size: 1.5em;
+  font-weight: bold;
+}
 
-  monthYear.textContent = `${year}年 ${month + 1}月`;
-  daysContainer.innerHTML = "";
+.controls button, .controls select {
+  margin: 0 0.3em;
+  padding: 0.5em 1em;
+  background: #fff;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.controls button:hover, .controls select:hover {
+  background: #f0f0f0;
+}
 
-  const startDay = firstDay.getDay();
-  const totalDays = lastDay.getDate();
+.calendar {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin: 1em auto;
+  width: 90%;
+  max-width: 1000px;
+}
 
-  // 曜日ヘッダー
-  const weekDays = ["日","月","火","水","木","金","土"];
-  weekDays.forEach(d => {
-    const div = document.createElement("div");
-    div.classList.add("day-header");
-    div.textContent = d;
-    daysContainer.appendChild(div);
-  });
+.calendar-days {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 1px;
+  background: #ccc;
+  width: 100%;
+}
 
-  // 空白
-  for (let i = 0; i < startDay; i++) {
-    const empty = document.createElement("div");
-    empty.classList.add("day");
-    empty.classList.add("empty");
-    daysContainer.appendChild(empty);
+.day {
+  background: #fff;
+  min-height: 120px;
+  padding: 6px;
+  box-sizing: border-box;
+  position: relative;
+  cursor: pointer;
+  overflow: hidden;
+}
+.day.today {
+  border: 2px solid #1a73e8;
+}
+.day:hover {
+  background: #f0f8ff;
+}
+
+.day-header {
+  text-align: center;
+  font-weight: bold;
+  padding: 0.5em 0;
+  background: #f9f9f9;
+}
+
+.event {
+  background: #1a73e8;
+  color: white;
+  padding: 3px 6px;
+  border-radius: 4px;
+  font-size: 0.8em;
+  margin-top: 4px;
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: grab;
+}
+
+.modal {
+  display: none;
+  position: fixed;
+  z-index: 100;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0,0,0,0.3);
+  justify-content: center;
+  align-items: center;
+}
+
+.modal-content {
+  background: white;
+  padding: 1.5em;
+  border-radius: 10px;
+  width: 300px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+}
+
+.modal-content textarea {
+  width: 100%;
+  height: 80px;
+  margin-top: 1em;
+}
+
+.modal-buttons {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 1em;
+}
+.modal-buttons button {
+  flex: 1;
+  margin: 0 0.3em;
+  padding: 0.5em;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+}
+#save-event { background: #1a73e8; color: white; }
+#close-modal { background: #aaa; color: white; }
+
+#event-list {
+  margin-top: 1em;
+}
+.event-item {
+  display: flex;
+  justify-content: space-between;
+  background: #f0f0f0;
+  padding: 4px 6px;
+  border-radius: 4px;
+  margin-bottom: 4px;
+}
+.event-item span {
+  color: #333;
+}
+.event-item button {
+  border: none;
+  background: #e84545;
+  color: white;
+  border-radius: 4px;
+  padding: 0 5px;
+  cursor: pointer;
+}
+
+@media (max-width: 700px) {
+  .calendar-days {
+    grid-template-columns: repeat(1, 1fr);
   }
-
-  // 日付セル
-  for (let i = 1; i <= totalDays; i++) {
-    const date = new Date(year, month, i);
-    const div = document.createElement("div");
-    div.classList.add("day");
-    if (isToday(date)) div.classList.add("today");
-
-    const dateKey = `${year}-${month + 1}-${i}`;
-    div.innerHTML = `<strong>${i}</strong>`;
-    
-    if (events[dateKey]) {
-      const eventEl = document.createElement("span");
-      eventEl.classList.add("event");
-      eventEl.textContent = events[dateKey];
-      div.appendChild(eventEl);
-    }
-
-    div.addEventListener("click", () => openModal(dateKey, date));
-    daysContainer.appendChild(div);
-  }
 }
-
-function isToday(date) {
-  const now = new Date();
-  return date.getDate() === now.getDate() &&
-         date.getMonth() === now.getMonth() &&
-         date.getFullYear() === now.getFullYear();
-}
-
-function openModal(dateKey, date) {
-  modal.style.display = "flex";
-  modalDate.textContent = `${date.getMonth() + 1}月${date.getDate()}日`;
-  eventText.value = events[dateKey] || "";
-  saveEventBtn.onclick = () => saveEvent(dateKey);
-  deleteEventBtn.onclick = () => deleteEvent(dateKey);
-}
-
-function closeModal() {
-  modal.style.display = "none";
-  eventText.value = "";
-}
-
-function saveEvent(dateKey) {
-  const text = eventText.value.trim();
-  if (text) {
-    events[dateKey] = text;
-    localStorage.setItem("calendarEvents", JSON.stringify(events));
-  }
-  closeModal();
-  renderCalendar();
-}
-
-function deleteEvent(dateKey) {
-  delete events[dateKey];
-  localStorage.setItem("calendarEvents", JSON.stringify(events));
-  closeModal();
-  renderCalendar();
-}
-
-document.getElementById("prev-month").onclick = () => {
-  currentDate.setMonth(currentDate.getMonth() - 1);
-  renderCalendar();
-};
-document.getElementById("next-month").onclick = () => {
-  currentDate.setMonth(currentDate.getMonth() + 1);
-  renderCalendar();
-};
-document.getElementById("today-btn").onclick = () => {
-  currentDate = new Date();
-  renderCalendar();
-};
-closeModalBtn.onclick = closeModal;
-window.onclick = e => { if (e.target === modal) closeModal(); };
-
-renderCalendar();
