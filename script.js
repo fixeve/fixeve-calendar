@@ -11,93 +11,162 @@ const viewSelect = document.getElementById("view-select");
 let currentDate = new Date();
 let events = JSON.parse(localStorage.getItem("calendarEvents")) || {};
 let currentView = "month";
+let dragData = null;
 
 function renderCalendar() {
+  daysContainer.innerHTML = "";
+  monthYear.textContent = getTitle();
+
+  if (currentView === "month") renderMonthView();
+  else if (currentView === "week") renderWeekView();
+  else renderDayView();
+}
+
+function getTitle() {
+  const year = currentDate.getFullYear();
+  const month = currentDate.getMonth() + 1;
+  const day = currentDate.getDate();
+  if (currentView === "month") return `${year}年 ${month}月`;
+  if (currentView === "week") {
+    const start = getWeekStart(currentDate);
+    const end = getWeekEnd(currentDate);
+    return `${start.getMonth()+1}/${start.getDate()} - ${end.getMonth()+1}/${end.getDate()}`;
+  }
+  return `${currentDate.getMonth()+1}月${currentDate.getDate()}日`;
+}
+
+function renderMonthView() {
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
-  const today = new Date();
-
-  daysContainer.innerHTML = "";
-
   const firstDay = new Date(year, month, 1);
   const lastDay = new Date(year, month + 1, 0);
 
-  monthYear.textContent = `${year}年 ${month + 1}月`;
+  renderWeekDays();
 
-  const weekDays = ["日", "月", "火", "水", "木", "金", "土"];
-  weekDays.forEach(d => {
+  // 空白
+  for (let i=0;i<firstDay.getDay();i++) createEmptyDay();
+
+  for (let i=1;i<=lastDay.getDate();i++){
+    const date = new Date(year, month, i);
+    const dateKey = dateKeyString(date);
+    createDayCell(date, dateKey);
+  }
+}
+
+function renderWeekView() {
+  renderWeekDays();
+  const start = getWeekStart(currentDate);
+  for (let i=0;i<7;i++){
+    const date = new Date(start);
+    date.setDate(start.getDate()+i);
+    const dateKey = dateKeyString(date);
+    createDayCell(date, dateKey);
+  }
+}
+
+function renderDayView() {
+  const dateKey = dateKeyString(currentDate);
+  createDayCell(currentDate, dateKey, true);
+}
+
+function renderWeekDays() {
+  const weekDays = ["日","月","火","水","木","金","土"];
+  weekDays.forEach(d=>{
     const div = document.createElement("div");
     div.classList.add("day-header");
     div.textContent = d;
     daysContainer.appendChild(div);
   });
+}
 
-  const startDay = firstDay.getDay();
-  const totalDays = lastDay.getDate();
+function createEmptyDay(){
+  const div = document.createElement("div");
+  div.classList.add("day");
+  daysContainer.appendChild(div);
+}
 
-  for (let i = 0; i < startDay; i++) {
-    const empty = document.createElement("div");
-    empty.classList.add("day");
-    daysContainer.appendChild(empty);
+function createDayCell(date, dateKey, single=false){
+  const div = document.createElement("div");
+  div.classList.add("day");
+  if (isToday(date)) div.classList.add("today");
+
+  if (!single) div.innerHTML = `<strong>${date.getDate()}</strong>`;
+  else div.innerHTML = `<strong>${date.getDate()}</strong>`;
+
+  // イベント
+  if (events[dateKey]){
+    events[dateKey].forEach((text, idx)=>{
+      const ev = document.createElement("div");
+      ev.classList.add("event");
+      ev.textContent = text;
+      ev.draggable = true;
+      ev.dataset.date = dateKey;
+      ev.dataset.index = idx;
+      ev.addEventListener("dragstart", e=> dragData = e.target);
+      div.appendChild(ev);
+    });
   }
 
-  for (let i = 1; i <= totalDays; i++) {
-    const date = new Date(year, month, i);
-    const dateKey = `${year}-${month + 1}-${i}`;
-    const div = document.createElement("div");
-    div.classList.add("day");
-    if (isToday(date, today)) div.classList.add("today");
-
-    div.innerHTML = `<strong>${i}</strong>`;
-    if (events[dateKey]) {
-      events[dateKey].forEach((text, idx) => {
-        const ev = document.createElement("div");
-        ev.classList.add("event");
-        ev.textContent = text;
-        ev.draggable = true;
-        ev.dataset.date = dateKey;
-        ev.dataset.index = idx;
-        ev.addEventListener("dragstart", onDragStart);
-        div.appendChild(ev);
-      });
+  div.addEventListener("click",()=> openModal(dateKey, date));
+  div.addEventListener("dragover", e=> e.preventDefault());
+  div.addEventListener("drop", e=>{
+    if (dragData){
+      const fromDate = dragData.dataset.date;
+      const idx = dragData.dataset.index;
+      if (!events[dateKey]) events[dateKey]=[];
+      events[dateKey].push(events[fromDate][idx]);
+      events[fromDate].splice(idx,1);
+      if (events[fromDate].length===0) delete events[fromDate];
+      localStorage.setItem("calendarEvents", JSON.stringify(events));
+      dragData=null;
+      renderCalendar();
     }
+  });
 
-    div.addEventListener("click", () => openModal(dateKey, date));
-    div.addEventListener("dragover", e => e.preventDefault());
-    div.addEventListener("drop", e => onDrop(e, dateKey));
-
-    daysContainer.appendChild(div);
-  }
-
-  // ビュー切替処理
-  if (currentView === "week") filterToWeek();
-  else if (currentView === "day") filterToDay();
+  daysContainer.appendChild(div);
 }
 
-function isToday(date, today) {
-  return date.getDate() === today.getDate() &&
-         date.getMonth() === today.getMonth() &&
-         date.getFullYear() === today.getFullYear();
+function dateKeyString(date){
+  return `${date.getFullYear()}-${date.getMonth()+1}-${date.getDate()}`;
 }
 
-function openModal(dateKey, date) {
-  modal.style.display = "flex";
-  modalDate.textContent = `${date.getMonth() + 1}月${date.getDate()}日`;
-  eventText.value = "";
+function isToday(date){
+  const now = new Date();
+  return date.getFullYear()===now.getFullYear() &&
+         date.getMonth()===now.getMonth() &&
+         date.getDate()===now.getDate();
+}
+
+// 週開始・終了
+function getWeekStart(date){
+  const d = new Date(date);
+  d.setDate(d.getDate()-d.getDay());
+  return d;
+}
+function getWeekEnd(date){
+  const d = new Date(getWeekStart(date));
+  d.setDate(d.getDate()+6);
+  return d;
+}
+
+function openModal(dateKey,date){
+  modal.style.display="flex";
+  modalDate.textContent=`${date.getMonth()+1}月${date.getDate()}日`;
+  eventText.value="";
   renderEventList(dateKey);
-  saveEventBtn.onclick = () => saveEvent(dateKey);
+  saveEventBtn.onclick = ()=> saveEvent(dateKey);
 }
 
-function renderEventList(dateKey) {
-  eventList.innerHTML = "";
+function renderEventList(dateKey){
+  eventList.innerHTML="";
   const evts = events[dateKey] || [];
-  evts.forEach((t, i) => {
+  evts.forEach((t,i)=>{
     const div = document.createElement("div");
     div.classList.add("event-item");
     div.innerHTML = `<span>${t}</span><button>削除</button>`;
-    div.querySelector("button").onclick = () => {
-      evts.splice(i, 1);
-      if (evts.length === 0) delete events[dateKey];
+    div.querySelector("button").onclick = ()=>{
+      evts.splice(i,1);
+      if (evts.length===0) delete events[dateKey];
       localStorage.setItem("calendarEvents", JSON.stringify(events));
       renderEventList(dateKey);
       renderCalendar();
@@ -106,91 +175,34 @@ function renderEventList(dateKey) {
   });
 }
 
-function closeModal() {
-  modal.style.display = "none";
-  eventText.value = "";
-}
-
-function saveEvent(dateKey) {
+function closeModal(){modal.style.display="none";eventText.value="";}
+function saveEvent(dateKey){
   const text = eventText.value.trim();
-  if (text) {
-    if (!events[dateKey]) events[dateKey] = [];
-    events[dateKey].push(text);
-    localStorage.setItem("calendarEvents", JSON.stringify(events));
-  }
-  eventText.value = "";
+  if (!text) return;
+  if (!events[dateKey]) events[dateKey]=[];
+  events[dateKey].push(text);
+  localStorage.setItem("calendarEvents", JSON.stringify(events));
   renderEventList(dateKey);
   renderCalendar();
 }
 
-function onDragStart(e) {
-  e.dataTransfer.setData("text/plain", JSON.stringify({
-    fromDate: e.target.dataset.date,
-    index: e.target.dataset.index
-  }));
-}
-
-function onDrop(e, toDate) {
-  const data = JSON.parse(e.dataTransfer.getData("text/plain"));
-  const fromDate = data.fromDate;
-  const index = data.index;
-  const movedEvent = events[fromDate][index];
-
-  // 移動
-  if (!events[toDate]) events[toDate] = [];
-  events[toDate].push(movedEvent);
-  events[fromDate].splice(index, 1);
-  if (events[fromDate].length === 0) delete events[fromDate];
-
-  localStorage.setItem("calendarEvents", JSON.stringify(events));
-  renderCalendar();
-}
-
-function filterToWeek() {
-  const now = new Date(currentDate);
-  const startOfWeek = new Date(now);
-  startOfWeek.setDate(now.getDate() - now.getDay());
-  const endOfWeek = new Date(startOfWeek);
-  endOfWeek.setDate(startOfWeek.getDate() + 6);
-
-  const allDays = document.querySelectorAll(".day");
-  allDays.forEach(day => {
-    const strong = day.querySelector("strong");
-    if (!strong) return;
-    const date = new Date(currentDate.getFullYear(), currentDate.getMonth(), strong.textContent);
-    day.style.display = (date >= startOfWeek && date <= endOfWeek) ? "block" : "none";
-  });
-}
-
-function filterToDay() {
-  const allDays = document.querySelectorAll(".day");
-  allDays.forEach(day => {
-    const strong = day.querySelector("strong");
-    if (!strong) return;
-    const date = new Date(currentDate.getFullYear(), currentDate.getMonth(), strong.textContent);
-    const today = new Date(currentDate);
-    day.style.display = date.getDate() === today.getDate() ? "block" : "none";
-  });
-}
-
-// ナビゲーション
-document.getElementById("prev").onclick = () => {
-  if (currentView === "month") currentDate.setMonth(currentDate.getMonth() - 1);
-  else currentDate.setDate(currentDate.getDate() - 7);
+document.getElementById("prev").onclick = ()=>{
+  if (currentView==="month") currentDate.setMonth(currentDate.getMonth()-1);
+  else currentDate.setDate(currentDate.getDate()-7);
   renderCalendar();
 };
-document.getElementById("next").onclick = () => {
-  if (currentView === "month") currentDate.setMonth(currentDate.getMonth() + 1);
-  else currentDate.setDate(currentDate.getDate() + 7);
+document.getElementById("next").onclick = ()=>{
+  if (currentView==="month") currentDate.setMonth(currentDate.getMonth()+1);
+  else currentDate.setDate(currentDate.getDate()+7);
   renderCalendar();
 };
-document.getElementById("today-btn").onclick = () => {
-  currentDate = new Date();
+document.getElementById("today-btn").onclick=()=>{
+  currentDate=new Date();
   renderCalendar();
 };
 closeModalBtn.onclick = closeModal;
-viewSelect.onchange = e => {
-  currentView = e.target.value;
+viewSelect.onchange = e=>{
+  currentView=e.target.value;
   renderCalendar();
 };
 
