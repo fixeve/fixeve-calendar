@@ -1,160 +1,197 @@
-body {
-  font-family: "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-  background: #f4f5f7;
-  margin: 0;
-  padding: 0;
-}
+const daysContainer = document.querySelector(".calendar-days");
+const monthYear = document.getElementById("month-year");
+const modal = document.getElementById("event-modal");
+const modalDate = document.getElementById("modal-date");
+const eventText = document.getElementById("event-text");
+const saveEventBtn = document.getElementById("save-event");
+const closeModalBtn = document.getElementById("close-modal");
+const eventList = document.getElementById("event-list");
+const viewSelect = document.getElementById("view-select");
 
-.calendar-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  background: white;
-  padding: 1em;
-  box-shadow: 0 1px 4px rgba(0,0,0,0.1);
-  position: sticky;
-  top: 0;
-}
+let currentDate = new Date();
+let events = JSON.parse(localStorage.getItem("calendarEvents")) || {};
+let currentView = "month";
 
-#month-year {
-  font-size: 1.5em;
-  font-weight: bold;
-}
+function renderCalendar() {
+  const year = currentDate.getFullYear();
+  const month = currentDate.getMonth();
+  const today = new Date();
 
-.controls button, .controls select {
-  margin: 0 0.3em;
-  padding: 0.5em 1em;
-  background: #fff;
-  border: 1px solid #ccc;
-  border-radius: 6px;
-  cursor: pointer;
-}
-.controls button:hover, .controls select:hover {
-  background: #f0f0f0;
-}
+  daysContainer.innerHTML = "";
 
-.calendar {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  margin: 1em auto;
-  width: 90%;
-  max-width: 1000px;
-}
+  const firstDay = new Date(year, month, 1);
+  const lastDay = new Date(year, month + 1, 0);
 
-.calendar-days {
-  display: grid;
-  grid-template-columns: repeat(7, 1fr);
-  gap: 1px;
-  background: #ccc;
-  width: 100%;
-}
+  monthYear.textContent = `${year}年 ${month + 1}月`;
 
-.day {
-  background: #fff;
-  min-height: 120px;
-  padding: 6px;
-  box-sizing: border-box;
-  position: relative;
-  cursor: pointer;
-  overflow: hidden;
-}
-.day.today {
-  border: 2px solid #1a73e8;
-}
-.day:hover {
-  background: #f0f8ff;
-}
+  const weekDays = ["日", "月", "火", "水", "木", "金", "土"];
+  weekDays.forEach(d => {
+    const div = document.createElement("div");
+    div.classList.add("day-header");
+    div.textContent = d;
+    daysContainer.appendChild(div);
+  });
 
-.day-header {
-  text-align: center;
-  font-weight: bold;
-  padding: 0.5em 0;
-  background: #f9f9f9;
-}
+  const startDay = firstDay.getDay();
+  const totalDays = lastDay.getDate();
 
-.event {
-  background: #1a73e8;
-  color: white;
-  padding: 3px 6px;
-  border-radius: 4px;
-  font-size: 0.8em;
-  margin-top: 4px;
-  display: block;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  cursor: grab;
-}
-
-.modal {
-  display: none;
-  position: fixed;
-  z-index: 100;
-  left: 0;
-  top: 0;
-  width: 100%;
-  height: 100%;
-  background-color: rgba(0,0,0,0.3);
-  justify-content: center;
-  align-items: center;
-}
-
-.modal-content {
-  background: white;
-  padding: 1.5em;
-  border-radius: 10px;
-  width: 300px;
-  box-shadow: 0 2px 10px rgba(0,0,0,0.3);
-}
-
-.modal-content textarea {
-  width: 100%;
-  height: 80px;
-  margin-top: 1em;
-}
-
-.modal-buttons {
-  display: flex;
-  justify-content: space-between;
-  margin-top: 1em;
-}
-.modal-buttons button {
-  flex: 1;
-  margin: 0 0.3em;
-  padding: 0.5em;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-}
-#save-event { background: #1a73e8; color: white; }
-#close-modal { background: #aaa; color: white; }
-
-#event-list {
-  margin-top: 1em;
-}
-.event-item {
-  display: flex;
-  justify-content: space-between;
-  background: #f0f0f0;
-  padding: 4px 6px;
-  border-radius: 4px;
-  margin-bottom: 4px;
-}
-.event-item span {
-  color: #333;
-}
-.event-item button {
-  border: none;
-  background: #e84545;
-  color: white;
-  border-radius: 4px;
-  padding: 0 5px;
-  cursor: pointer;
-}
-
-@media (max-width: 700px) {
-  .calendar-days {
-    grid-template-columns: repeat(1, 1fr);
+  for (let i = 0; i < startDay; i++) {
+    const empty = document.createElement("div");
+    empty.classList.add("day");
+    daysContainer.appendChild(empty);
   }
+
+  for (let i = 1; i <= totalDays; i++) {
+    const date = new Date(year, month, i);
+    const dateKey = `${year}-${month + 1}-${i}`;
+    const div = document.createElement("div");
+    div.classList.add("day");
+    if (isToday(date, today)) div.classList.add("today");
+
+    div.innerHTML = `<strong>${i}</strong>`;
+    if (events[dateKey]) {
+      events[dateKey].forEach((text, idx) => {
+        const ev = document.createElement("div");
+        ev.classList.add("event");
+        ev.textContent = text;
+        ev.draggable = true;
+        ev.dataset.date = dateKey;
+        ev.dataset.index = idx;
+        ev.addEventListener("dragstart", onDragStart);
+        div.appendChild(ev);
+      });
+    }
+
+    div.addEventListener("click", () => openModal(dateKey, date));
+    div.addEventListener("dragover", e => e.preventDefault());
+    div.addEventListener("drop", e => onDrop(e, dateKey));
+
+    daysContainer.appendChild(div);
+  }
+
+  // ビュー切替処理
+  if (currentView === "week") filterToWeek();
+  else if (currentView === "day") filterToDay();
 }
+
+function isToday(date, today) {
+  return date.getDate() === today.getDate() &&
+         date.getMonth() === today.getMonth() &&
+         date.getFullYear() === today.getFullYear();
+}
+
+function openModal(dateKey, date) {
+  modal.style.display = "flex";
+  modalDate.textContent = `${date.getMonth() + 1}月${date.getDate()}日`;
+  eventText.value = "";
+  renderEventList(dateKey);
+  saveEventBtn.onclick = () => saveEvent(dateKey);
+}
+
+function renderEventList(dateKey) {
+  eventList.innerHTML = "";
+  const evts = events[dateKey] || [];
+  evts.forEach((t, i) => {
+    const div = document.createElement("div");
+    div.classList.add("event-item");
+    div.innerHTML = `<span>${t}</span><button>削除</button>`;
+    div.querySelector("button").onclick = () => {
+      evts.splice(i, 1);
+      if (evts.length === 0) delete events[dateKey];
+      localStorage.setItem("calendarEvents", JSON.stringify(events));
+      renderEventList(dateKey);
+      renderCalendar();
+    };
+    eventList.appendChild(div);
+  });
+}
+
+function closeModal() {
+  modal.style.display = "none";
+  eventText.value = "";
+}
+
+function saveEvent(dateKey) {
+  const text = eventText.value.trim();
+  if (text) {
+    if (!events[dateKey]) events[dateKey] = [];
+    events[dateKey].push(text);
+    localStorage.setItem("calendarEvents", JSON.stringify(events));
+  }
+  eventText.value = "";
+  renderEventList(dateKey);
+  renderCalendar();
+}
+
+function onDragStart(e) {
+  e.dataTransfer.setData("text/plain", JSON.stringify({
+    fromDate: e.target.dataset.date,
+    index: e.target.dataset.index
+  }));
+}
+
+function onDrop(e, toDate) {
+  const data = JSON.parse(e.dataTransfer.getData("text/plain"));
+  const fromDate = data.fromDate;
+  const index = data.index;
+  const movedEvent = events[fromDate][index];
+
+  // 移動
+  if (!events[toDate]) events[toDate] = [];
+  events[toDate].push(movedEvent);
+  events[fromDate].splice(index, 1);
+  if (events[fromDate].length === 0) delete events[fromDate];
+
+  localStorage.setItem("calendarEvents", JSON.stringify(events));
+  renderCalendar();
+}
+
+function filterToWeek() {
+  const now = new Date(currentDate);
+  const startOfWeek = new Date(now);
+  startOfWeek.setDate(now.getDate() - now.getDay());
+  const endOfWeek = new Date(startOfWeek);
+  endOfWeek.setDate(startOfWeek.getDate() + 6);
+
+  const allDays = document.querySelectorAll(".day");
+  allDays.forEach(day => {
+    const strong = day.querySelector("strong");
+    if (!strong) return;
+    const date = new Date(currentDate.getFullYear(), currentDate.getMonth(), strong.textContent);
+    day.style.display = (date >= startOfWeek && date <= endOfWeek) ? "block" : "none";
+  });
+}
+
+function filterToDay() {
+  const allDays = document.querySelectorAll(".day");
+  allDays.forEach(day => {
+    const strong = day.querySelector("strong");
+    if (!strong) return;
+    const date = new Date(currentDate.getFullYear(), currentDate.getMonth(), strong.textContent);
+    const today = new Date(currentDate);
+    day.style.display = date.getDate() === today.getDate() ? "block" : "none";
+  });
+}
+
+// ナビゲーション
+document.getElementById("prev").onclick = () => {
+  if (currentView === "month") currentDate.setMonth(currentDate.getMonth() - 1);
+  else currentDate.setDate(currentDate.getDate() - 7);
+  renderCalendar();
+};
+document.getElementById("next").onclick = () => {
+  if (currentView === "month") currentDate.setMonth(currentDate.getMonth() + 1);
+  else currentDate.setDate(currentDate.getDate() + 7);
+  renderCalendar();
+};
+document.getElementById("today-btn").onclick = () => {
+  currentDate = new Date();
+  renderCalendar();
+};
+closeModalBtn.onclick = closeModal;
+viewSelect.onchange = e => {
+  currentView = e.target.value;
+  renderCalendar();
+};
+
+renderCalendar();
